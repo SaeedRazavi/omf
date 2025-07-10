@@ -3058,58 +3058,51 @@ def work(modelDir, inputDict):
 	geo.map_omd(new_path, modelDir, open_browser=False)
 	outData['resilienceMap'] = open( pJoin( modelDir, "geoJson_offline.html"), 'r' ).read()
 	outData['geojsonData'] = open(geoJson_shapes_file, 'r').read()
-
-	headers1 = ['Load Name','Section', 'Base Criticality Score', 'Base Criticality Index','Community Criticality Score', 'Community Criticality Index', 'Social Vulnerability', 'Affluence Score']
-	load_names = list(loads.keys())
-	section1 = [value.get('section') for key, value in loads.items()]
-	base_criticality_score_vals1 = [value.get('base crit score') for key, value in loads.items()]
-	base_criticity_index_vals1 = [value.get('base crit index') for key, value in loads.items()]
-	community_criticality_score_vals1 = [value.get('community crit score') for key, value in loads.items()]
-	community_criticity_index_vals1 = [value.get('community crit index') for key, value in loads.items()]
-	sovi_vals1 = [value.get('SOVI_SCORE') for key, value in loads.items()]
-	affluence_vals1 = [value.get('affluence score') for key, value in loads.items()]
-	outData['loadTableHeadings'] = headers1
-	outData['loadTableValues'] = list(zip(load_names, section1,  base_criticality_score_vals1, base_criticity_index_vals1,community_criticality_score_vals1,community_criticity_index_vals1, sovi_vals1,affluence_vals1))
-
-	headers2 = ['Equipment Name', 'Section', 'Base Criticality Score', 'Base Criticallity Index', 'Community Criticality Score', 'Community Criticality Index']
-	object_names = list(obDict.keys())
-	section2 = [value.get('section') for key, value in obDict.items()]
-	base_criticality_score_vals2 = [value.get('base crit score') for key, value in obDict.items()]
-	base_criticity_index_vals2 = [value.get('base crit index') for key, value in obDict.items()]
-	community_criticality_score_vals2 = [value.get('community crit score') for key, value in obDict.items()]
-	community_criticity_index_vals2 = [value.get('community crit index') for key, value in obDict.items()]
-
-	outData['loadTableHeadings2'] = headers2
-	outData['loadTableValues2'] = list(zip(object_names, section2,  base_criticality_score_vals2, base_criticity_index_vals2,community_criticality_score_vals2,community_criticity_index_vals2 ))
-
+	
+	# Collect Loads Data Table Info
+	tableRows1 = []
+	for load_names,v in loads.items():
+		row = (
+			load_names,
+			v.get('section'),
+			v.get('base crit score'),
+			v.get('base crit index'),
+			v.get('community crit score'),
+			v.get('community crit index'),
+			v.get('SOVI_SCORE'),
+			v.get('affluence score')
+		)
+		tableRows1.append(row)
+	outData['loadTableHeadings'] = ['Load Name','Section', 'Base Criticality Score', 'Base Criticality Index','Community Criticality Score', 'Community Criticality Index', 'Social Vulnerability', 'Affluence Score']
+	outData['loadTableValues'] = tableRows1
+	
+	# Collect Equipment Data Table Info
+	tableRows2 = []
+	for object_names,v in obDict.items():
+		row = (
+			object_names,
+			v.get('section'),
+			v.get('base crit score'),
+			v.get('base crit index'),
+			v.get('community crit score'),
+			v.get('community crit index')
+			)
+		tableRows2.append(row)
+	outData['loadTableHeadings2'] = ['Equipment Name', 'Section', 'Base Criticality Score', 'Base Criticallity Index', 'Community Criticality Score', 'Community Criticality Index']
+	outData['loadTableValues2'] = tableRows2
+	
+	# Collect Sections Data Table Info
+	useZillow = False
 	headers3 = ['Section', 'Base Criticality Score', 'Base Criticallity Index', 'Community Criticality Score', 'Community Criticality Index','Social Vulnerability','Affluent Score', 'Load Count', 'Load Amount']
-	section_names = loadSections["section"].tolist()
-	base_criticality_score_vals3 = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["avg_base_criticality_score"].tolist()
-	]
-	base_criticity_index_vals3 = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["avg_base_criticality_score_index"].tolist()
-	]
-	community_criticality_score_vals3 = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["avg_community_criticality_score"].tolist()
-	]
-	community_criticity_index_vals3 = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["avg_community_criticality_score_index"].tolist()
-	]
-	zillow_prices_vals3 = [
-		round(val, 2) if pd.notnull(val) else None for val in []#loadSections["avg_zillow_price"].tolist()
-	]
-	load_count_vals = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["load_count"].tolist()
-	]
-	load_amount_vals = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["load_amount"].tolist()
-	]
-	SOVI_vals = [
-		round(val, 2) if pd.notnull(val) else None for val in loadSections["avg_svi_score"].tolist()
-	]
+	cols = ['section', 'avg_base_criticality_score', 'avg_base_criticality_score_index', 'avg_community_criticality_score', 'avg_community_criticality_score_index', 'avg_svi_score', 'avg_zillow_price', 'load_count', 'load_amount']
+	if not useZillow:
+		headers3.remove('Affluent Score')
+		cols.remove('avg_zillow_price')
+	smartRound = lambda x: round(x,2) if pd.notnull(x) else None
+	loadSections[cols[1:]] = loadSections[cols[1:]].map(smartRound)
+	tableRows3 = list(loadSections[cols].itertuples(index=False, name=None))
 	outData['loadTableHeadings3'] = headers3
-	outData['loadTableValues3'] = list(zip(section_names, base_criticality_score_vals3,  base_criticity_index_vals3, community_criticality_score_vals3,community_criticity_index_vals3,SOVI_vals, zillow_prices_vals3,load_count_vals,load_amount_vals))
+	outData['loadTableValues3'] = tableRows3
 	return outData
 
 def test():
