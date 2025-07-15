@@ -398,9 +398,9 @@ def getPowerMeasures(ob):
 		raise Exception(f'Load {ob["name"]} does not have necessary information to calculate kw, kva, and kvar')
 	return kw, kvar, kva
 
-def getDownLineLoadsEquipmentBlockGroupZillow(pathToOmd, equipmentList,avgPeakDemand,pathToZillowData, pathToLoadsFile,loadsTypeList, zillowFlag=None):
+def getDownLineLoadsEquipmentBlockGroup(pathToOmd, equipmentList,avgPeakDemand, pathToLoadsFile, loadsTypeList, pathToZillowData = None, useZillowData=False):
 	'''
-	Retrieves downline loads for specific set of equipment and retrieve nri data for each of the equipment
+	Retrieves downline loads for specific set of equipment and retrieve nri data for each of the equipment, optionally using zillow data.
 	pathToOmd -> path to the omdfile
 	equipmentList -> list of equipment of interest
 	'''
@@ -414,7 +414,7 @@ def getDownLineLoadsEquipmentBlockGroupZillow(pathToOmd, equipmentList,avgPeakDe
 	geoms = []
 	obDict = {}
 	bg_outputDict = {}
-	# lowercase list
+
 	# Section code
 	sectionsDict, distanceDict, totalSections = runSections(pathToOmd, omd)
 	# Retrieve data to compute SVI
@@ -493,9 +493,8 @@ def getDownLineLoadsEquipmentBlockGroupZillow(pathToOmd, equipmentList,avgPeakDe
 	#sviDF['SOVI_SCORE'] = sviDF[pctile_list].sum(axis=1).rank(pct=True)
 	sviDF['SOVI_RATNG'] = sviDF.apply(buildSVIRating, axis=1)
 	#sviDF.to_csv('outSVI.csv', index=False)
-	# put all
 	#pathToZillowData = '/Users/davidarmah/Documents/omf/omf/static/testFiles/resilientCommunity/zillowPrices.json'
-	if zillowFlag:
+	if useZillowData:
 		with open(pathToZillowData, 'r') as file:
 			zillowPrices = json.load(file)
 	else:
@@ -513,44 +512,72 @@ def getDownLineLoadsEquipmentBlockGroupZillow(pathToOmd, equipmentList,avgPeakDe
 			if (loadIsResidential):
 				currBlockGroup = loadsDict[key]['blockgroup']
 				svi_score = sviDF[sviDF['blockgroupFIPS'] == currBlockGroup]['SOVI_SCORE'].values[0]
-				if zillowPrices:
-					avgZillowPrice = zillowPrices[currBlockGroup]['avgPrice']
-					loadsDict[key]["zillow price"] = avgZillowPrice
+				if useZillowData:
+					if zillowPrices:
+						avgZillowPrice = zillowPrices[currBlockGroup]['avgPrice']
+						loadsDict[key]["zillow price"] = avgZillowPrice
+					else:
+						avgZillowPrice = 1
+						loadsDict[key]["zillow price"] = avgZillowPrice
+					# TODO: Isn't this rounding happening too early when there are more calcs to be done in the future? Could lead to errors later. Remove rounding here and add it back closer to where data is displayed. 
+					loadsDict[key]["community crit score"] = round((loadsDict[key]["base crit score"] * svi_score) / (avgZillowPrice/10000),2)
+					loadsDict[key]["affluence score"] = round(avgZillowPrice / 1000,2)
 				else:
-					avgZillowPrice = 1
-					loadsDict[key]["zillow price"] = avgZillowPrice
-				loadsDict[key]["community crit score"] = round((loadsDict[key]["base crit score"] * svi_score) / (avgZillowPrice/10000),2)
-				loadsDict[key]["affluence score"] = round(avgZillowPrice / 1000,2)
+					loadsDict[key]["community crit score"] = round((loadsDict[key]["base crit score"] * svi_score),2)
 				loadsDict[key]['SOVI_SCORE'] = round(svi_score,4)
 	getPercentile(loadsDict, "base crit score", 'distance_from_source')
 	getPercentile(loadsDict, 'community crit score', 'distance_from_source')
 	# calculate loads data for blockgroups
 	df_loads = pd.DataFrame(loadsDict).T
 	df_loads.rename(columns={"blockgroup": "blockgroupFIPS"}, inplace=True)
-	# Group by 'blockgroup' and calculate desired metrics
-	newdf_loads = df_loads.groupby('blockgroupFIPS').agg(
-		avg_base_criticality_score=('base crit score', 'mean'),
-		avg_community_criticality_score=('community crit score', 'mean'),
-		avg_base_criticality_score_index=('base crit index', 'mean'),
-		avg_community_criticality_score_index=('community crit index', 'mean'),
-		avg_zillow_price=('zillow price', 'mean'),
-		load_count=('base crit score', 'count'),
-		load_amount=('kva', 'sum')
-		).reset_index()
-	newsviDF = sviDF.merge(newdf_loads, on="blockgroupFIPS", how="left")
-	sviGeoDF = createGeoDF(newsviDF)
-	newsviDF = newsviDF.drop(columns=['geometry'])
-	# Group by 'section' and calculate desired metrics
-	section_loads = df_loads.groupby('section').agg(
-		avg_base_criticality_score=('base crit score', 'mean'),
-		avg_community_criticality_score=('community crit score', 'mean'),
-		avg_base_criticality_score_index=('base crit index', 'mean'),
-		avg_community_criticality_score_index=('community crit index', 'mean'),
-		avg_zillow_price=('zillow price', 'mean'),
-		avg_svi_score=('SOVI_SCORE', 'mean'),
-		load_count=('base crit score', 'count'),
-		load_amount=('kva', 'sum')
-		).reset_index()
+	if useZillowData:
+		# Group by 'blockgroup' and calculate desired metrics
+		newdf_loads = df_loads.groupby('blockgroupFIPS').agg(
+			avg_base_criticality_score=('base crit score', 'mean'),
+			avg_community_criticality_score=('community crit score', 'mean'),
+			avg_base_criticality_score_index=('base crit index', 'mean'),
+			avg_community_criticality_score_index=('community crit index', 'mean'),
+			avg_zillow_price=('zillow price', 'mean'),
+			load_count=('base crit score', 'count'),
+			load_amount=('kva', 'sum')
+			).reset_index()
+		newsviDF = sviDF.merge(newdf_loads, on="blockgroupFIPS", how="left")
+		sviGeoDF = createGeoDF(newsviDF)
+		newsviDF = newsviDF.drop(columns=['geometry'])
+		# Group by 'section' and calculate desired metrics
+		section_loads = df_loads.groupby('section').agg(
+			avg_base_criticality_score=('base crit score', 'mean'),
+			avg_community_criticality_score=('community crit score', 'mean'),
+			avg_base_criticality_score_index=('base crit index', 'mean'),
+			avg_community_criticality_score_index=('community crit index', 'mean'),
+			avg_zillow_price=('zillow price', 'mean'),
+			avg_svi_score=('SOVI_SCORE', 'mean'),
+			load_count=('base crit score', 'count'),
+			load_amount=('kva', 'sum')
+			).reset_index()
+	else:
+		# Group by 'blockgroup' and calculate desired metrics
+		newdf_loads = df_loads.groupby('blockgroupFIPS').agg(
+			avg_base_criticality_score=('base crit score', 'mean'),
+			avg_community_criticality_score=('community crit score', 'mean'),
+			avg_base_criticality_score_index=('base crit index', 'mean'),
+			avg_community_criticality_score_index=('community crit index', 'mean'),
+			load_count=('base crit score', 'count'),
+			load_amount=('kva', 'sum')
+			).reset_index()
+		newsviDF = sviDF.merge(newdf_loads, on="blockgroupFIPS", how="left")
+		sviGeoDF = createGeoDF(newsviDF)
+		newsviDF = newsviDF.drop(columns=['geometry'])
+		# Group by 'section' and calculate desired metrics
+		section_loads = df_loads.groupby('section').agg(
+			avg_base_criticality_score=('base crit score', 'mean'),
+			avg_community_criticality_score=('community crit score', 'mean'),
+			avg_base_criticality_score_index=('base crit index', 'mean'),
+			avg_community_criticality_score_index=('community crit index', 'mean'),
+			avg_svi_score=('SOVI_SCORE', 'mean'),
+			load_count=('base crit score', 'count'),
+			load_amount=('kva', 'sum')
+			).reset_index()
 	# Convert existing sections to a set for quick lookup
 	existing_sections = set(section_loads['section'])
 	# Iterate from 1 to totalSections to check for missing sections
@@ -606,213 +633,6 @@ def getDownLineLoadsEquipmentBlockGroupZillow(pathToOmd, equipmentList,avgPeakDe
 	getPercentile(newObsDict, 'base crit score')
 	getPercentile(newObsDict, 'community crit score')
 	return newObsDict,loadsDict, sviGeoDF, newsviDF, section_loads
-
-def getDownLineLoadsEquipmentBlockGroup(pathToOmd, equipmentList,avgPeakDemand, pathToLoadsFile, loadsTypeList):
-	'''
-	Retrieves downline loads for specific set of equipment and retrieve nri data for each of the equipment
-	pathToOmd -> path to the omdfile
-	equipmentList -> list of equipment of interest
-	'''
-	# iterate throughout circuit
-	#store census information
-	omd = json.load(open(pathToOmd))
-	loadsDF = pd.read_csv(pathToLoadsFile)
-	blockgroupDict = {}
-	loadsDict = {}
-	valList = []
-	geoms = []
-	obDict = {}
-	bg_outputDict = {}
-
-	sectionsDict, distanceDict, totalSections = runSections(pathToOmd, omd)
-	# Retrieve data to compute SVI
-	for ob in omd.get('tree', {}).values():
-		obType = ob['object']
-		obName = ob['name']
-		key = obType + '.' + obName
-		obDict[key] = ob
-		from_field = ob.get('from', None)
-		to_field = ob.get('to', None)
-		if from_field and to_field:
-			section_key = str((from_field, to_field))
-			if key in obDict and section_key in sectionsDict:
-				obDict[key]['section'] = sectionsDict[section_key]
-			else:
-				obDict[key]['section'] = None
-		elif obType == 'bus':
-			if key in obDict and section_key in sectionsDict:
-				obDict[key]['section'] = sectionsDict[section_key]
-		else:
-			obDict[key]['section'] = None
-		if (obType == 'load'):
-			filtered_df = loadsDF[loadsDF["Load Name"] == obName]
-			try:
-				loadIsResidential = filtered_df["Business Type"].iloc[0].lower() in loadsTypeList #== 'residential'
-			except IndexError as ie:
-				raise IndexError(f'{ie}\nNOTE: Your Customer Information (.csv file) likely didn\'t contain an entry for one or more loads')
-			if (loadIsResidential): 
-				loadsDict[key] = {"base crit score":None}
-				kw, kvar, kva = getPowerMeasures(ob)
-				loadsDict[key]['kva'] = kva
-				loadsDict[key]["base crit score"] = round(((math.sqrt((kw * kw) + (kvar * kvar) ))/ float(avgPeakDemand)) * 4,2)
-				if obName in sectionsDict:
-					loadsDict[key]['section'] = sectionsDict[obName]
-				else:
-					loadsDict[key]['section'] = None
-				if obName in distanceDict:
-					loadsDict[key]['distance_from_source'] = int(distanceDict[obName])
-				else:
-					loadsDict[key]['distance_from_source'] = 0
-				long = float(ob['longitude'])
-				lat = float(ob['latitude'])
-				if blockgroupDict:
-					check = coordCheck(long, lat, blockgroupDict)
-					if check:
-						loadsDict[key]['blockgroup'] = check
-						continue
-					else:
-						blockgroup = findCensusBlockGroup(lat,long)
-				else:
-					blockgroup = findCensusBlockGroup(lat,long)
-				# Following replaces a potentially infinite loop. Whether it's necessary at all though should be investigated
-				blockgroup = repeatFindCensusBlockGroup(lat,long)
-				loadsDict[key]['blockgroup'] = blockgroup
-				blockgroupDict[blockgroup] = buildsviBlockGroup(blockgroup)
-				valList.append(list(all_vals(blockgroupDict[blockgroup])))
-				geoms.append(blockgroupDict[blockgroup]['geometry'])
-
-
-		if (obType == 'load'):
-			loadsDict[key] = {"base crit score":None}
-			kw, kvar, kva = getPowerMeasures(ob)
-			loadsDict[key]["base crit score"]= round(((math.sqrt((kw * kw) + (kvar * kvar) ))/ (float(avgPeakDemand))) * 4,2)
-			long = float(ob['longitude'])
-			lat = float(ob['latitude'])
-			if blockgroupDict:
-				check = coordCheck(long, lat, blockgroupDict)
-				if check:
-					loadsDict[key]['blockgroup'] = check
-					continue
-				else:
-					blockgroup = findCensusBlockGroup(lat,long)
-			else:
-				blockgroup = findCensusBlockGroup(lat,long)
-			# Following replaces a potentially infinite loop. Whether it's necessary at all though should be investigated
-			blockgroup = repeatFindCensusBlockGroup(lat,long)
-			loadsDict[key]['blockgroup'] = blockgroup
-			blockgroupDict[blockgroup] = buildsviBlockGroup(blockgroup)
-			valList.append(list(all_vals(blockgroupDict[blockgroup])))
-			geoms.append(blockgroupDict[blockgroup]['geometry'])
-	# compute SVI
-	# DO NOT CHANGE ORDER -> matches order of dictionary in buildSVI(TractFIPS)
-	cols = ['pct_Prs_Blw_Pov_Lev_ACS_16_20','pct_Civ_emp_16p_ACS_16_20','avg_Agg_HH_INC_ACS_16_20','pct_Not_HS_Grad_ACS_16_20',
-			'pct_Pop_65plus_ACS_16_20','pct_u19ACS_16_20','pct_Pop_Disabled_ACS_16_20','pct_singlefamily_u18','pct_MLT_U10p_ACS_16_20',
-			'pct_Mobile_Homes_ACS_16_20','pct_Crowd_Occp_U_ACS_16_20','pct_noVehicle','blockgroupFIPS', 'geometry']
-	sviDF = createDF(valList,cols, geoms)
-	pctile_list = ['pct_Prs_Blw_Pov_Lev_ACS_16_20','pct_Civ_emp_16p_ACS_16_20','avg_Agg_HH_INC_ACS_16_20','pct_Not_HS_Grad_ACS_16_20',
-			'pct_Pop_65plus_ACS_16_20','pct_u19ACS_16_20','pct_Pop_Disabled_ACS_16_20','pct_singlefamily_u18','pct_MLT_U10p_ACS_16_20',
-			'pct_Mobile_Homes_ACS_16_20','pct_Crowd_Occp_U_ACS_16_20','pct_noVehicle']
-	for i in cols:
-		if i not in ['blockgroupFIPS', 'geometry']:
-			new_str = i + '_pct_rank'
-			sviDF[new_str] = sviDF[i].rank(pct=True)
-			pctile_list.append(new_str)
-	sviDF['SOVI_TOTAL']= sviDF[pctile_list].sum(axis=1)
-	sviDF['SOVI_SCORE'] = sviDF['SOVI_TOTAL'].rank(pct=True)
-	#sviDF['SOVI_SCORE'] = sviDF[pctile_list].sum(axis=1).rank(pct=True)
-	sviDF['SOVI_RATNG'] = sviDF.apply(buildSVIRating, axis=1)
-	#sviDF.to_csv('outSVI.csv', index=False)
-	sviGeoDF = createGeoDF(sviDF)
-	# put all
-	for ob in omd.get('tree', {}).values():
-		obType = ob['object']
-		obName = ob['name']
-		key = obType + '.' + obName
-		if (obType == 'load'):
-			currBlockGroup = loadsDict[key]['blockgroup']
-			svi_score = sviDF[sviDF['blockgroupFIPS'] == currBlockGroup]['SOVI_SCORE'].values[0]
-			# TODO: why round here when there are more calcs to be done? precision loss
-			loadsDict[key]["community crit score"] = round(loadsDict[key]["base crit score"] *  svi_score,2) 
-			loadsDict[key]['SOVI_SCORE'] = svi_score
-	getPercentile(loadsDict, "base crit score")
-	getPercentile(loadsDict, 'community crit score')
-	df_loads = pd.DataFrame(loadsDict).T
-	df_loads.rename(columns={"blockgroup": "blockgroupFIPS"}, inplace=True)
-	# Group by 'blockgroup' and calculate desired metrics
-	newdf_loads = df_loads.groupby('blockgroupFIPS').agg(
-	avg_base_criticality_score=('base crit score', 'mean'),
-	avg_community_criticality_score=('community crit score', 'mean'),
-	avg_base_criticality_score_index=('base crit index', 'mean'),
-	avg_community_criticality_score_index=('community crit index', 'mean'),
-	load_count=('base crit score', 'count')
-	).reset_index()
-	
-	# Group by 'section' and calculate desired metrics
-	section_loads = df_loads.groupby('section').agg(
-		avg_base_criticality_score=('base crit score', 'mean'),
-		avg_community_criticality_score=('community crit score', 'mean'),
-		avg_base_criticality_score_index=('base crit index', 'mean'),
-		avg_community_criticality_score_index=('community crit index', 'mean'),
-		avg_svi_score=('SOVI_SCORE', 'mean'),
-		load_count=('base crit score', 'count'),
-		load_amount=('kva', 'sum')
-		).reset_index()
-	# Convert existing sections to a set for quick lookup
-	existing_sections = set(section_loads['section'])
-	# Iterate from 1 to totalSections to check for missing sections
-	for section in range(1, totalSections + 1):  # Inclusive range
-		if section not in existing_sections:
-			# Append a row with all metrics set to None
-			section_loads = pd.concat([
-				section_loads,
-				pd.DataFrame({
-					'section': [section],
-					'avg_base_criticality_score': [None],
-					'avg_community_criticality_score': [None],
-					'avg_base_criticality_score_index': [None],
-					'avg_community_criticality_score_index': [None],
-					'avg_zillow_price': [None],
-					'load_count': [None],
-					'avg_svi_score':[None],
-					'load_amount': [None]
-				})
-			], ignore_index=True)
-	# Sort the DataFrame by 'section' to maintain order
-	section_loads = section_loads.sort_values(by='section').reset_index(drop=True)	
-	
-	del omd
-	digraph = createGraph(pathToOmd)
-	nodes = digraph.nodes()
-	namesToKeys = {v.get('name'):k for k,v in obDict.items()}
-	for obKey, ob in obDict.items():
-		obType = ob['object']
-		obName = ob['name']
-		obTo = ob.get('to')
-		if obName in nodes:
-			startingPoint = obName
-		elif obTo in nodes:
-			startingPoint = obTo
-		else:
-			continue
-		successors = nx.dfs_successors(digraph, startingPoint).values()
-		ob['downlineObs'] = []
-		ob['downlineLoads'] = []
-		if obType in equipmentList:
-			for listofVals in successors:
-				for element in listofVals:
-					elementKey = namesToKeys.get(element)
-					elementType = elementKey.split('.')[0]
-					if elementKey not in ob['downlineObs']:
-						ob['downlineObs'].append(elementKey)
-					if elementKey not in ob['downlineLoads'] and elementType == 'load':
-						ob['downlineLoads'].append(elementKey)
-	filteredObDict = {k:v  for k,v in obDict.items() if v.get('object') in equipmentList}
-	# perform weighted avg base criticality for equipment
-	newObsDict = BaseCriticallityWeightedAvg(filteredObDict, loadsDict)
-	# perform weighted avg community criticality for equipment
-	getPercentile(newObsDict, 'base crit score')
-	getPercentile(newObsDict, 'community crit score')
-	return newObsDict,loadsDict, sviGeoDF, sviDF, section_loads
 
 #UNUSED
 def getDownLineLoadsBlockGroup(pathToOmd, avgPeakDemand):
@@ -1147,7 +967,7 @@ def runCalculations(pathToOmd,pathToLoadsFile,avgPeakDemand, loadsTypeList, mode
 	modelDir -> modelDirectory to store csv
 	equipmentList -> specify list of equipment to use in analysis: example : ['line', 'fuse', 'transformer]
 	'''
-	obDict,loads, sviGeoDF, newsviDF, section_loads = getDownLineLoadsEquipmentBlockGroupZillow(pathToOmd, equipmentList,avgPeakDemand,'', pathToLoadsFile,loadsTypeList, )
+	obDict,loads, sviGeoDF, newsviDF, section_loads = getDownLineLoadsEquipmentBlockGroup(pathToOmd, equipmentList,avgPeakDemand, pathToLoadsFile, loadsTypeList)
 	cols = ['Object Name', 'Type','Section', 'Base Criticality Score', 'Base Criticality Index',
 			'Community Criticality Score', 'Community Criticality Index']
 	load_names = list(loads.keys())
@@ -1583,8 +1403,8 @@ def work(modelDir, inputDict):
 
 	# check downline loads
 	#loads_typeList = [item.lower() for item in inputDict['load_type'] ]
-	#obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroupZillow(omd_file_path, equipmentList,inputDict['averageDemand'], zillowPricesPath, loadsPath, loads_typeList, 'Yes')
-	obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList, inputDict['averageDemand'], loadsPath, loads_typeList)
+	#obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], loadsPath, loads_typeList, zillowPricesPath, True)
+	obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], loadsPath, loads_typeList)
 	# color vals based on selected column
 	createColorCSVBlockGroup(modelDir, loads, obDict)
 	if(inputDict['loadCol'] == 'Base Criticality Score'):
