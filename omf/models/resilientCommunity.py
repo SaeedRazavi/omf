@@ -655,12 +655,7 @@ def getDownLineLoadsBlockGroup(pathToOmd, avgPeakDemand):
 		if (obType == 'load'):
 			loadsDict[key] = {"base crit score":None}
 			kw = float(ob['kw'])
-			#kvar = float(ob['kvar']) if ob['kvar'] else kw/avgPeakDemand
-			# TODO: Is this supposed to be "is not None"? if so, replace if else block with the above comment 
-			if ob['kvar'] is None: 
-				kvar = float(ob['kvar'])
-			else:
-				kvar = kw/avgPeakDemand
+			kvar = float(ob['kvar']) if ob['kvar'] else kw/avgPeakDemand
 			kv = float(ob['kv'])
 			loadsDict[key]["base crit score"]= ((math.sqrt((kw * kw) + (kvar * kvar) ))/ (avgPeakDemand)) * 4
 			long = float(ob['longitude'])
@@ -752,12 +747,10 @@ def BaseCriticallityWeightedAvg(obsDict, loadsDict):
 		comm_crit_sum=0
 		base_crit_sum = 0
 		if(len(v['downlineLoads']) > 0):
-			count = len(v['downlineLoads'])
 			for j in v['downlineLoads']:
 				ob = loadsDict.get(j)
 				weights+=ob['SOVI_SCORE']
-				# TODO: Shouldn't this be BCS*SVI or CCS, not CCS*SVI? Where is that ccs coming from anyways?
-				comm_crit_sum+=ob['community crit score'] * ob['SOVI_SCORE'] 
+				comm_crit_sum+=ob['community crit score'] 
 				base_crit_sum+=ob['base crit score']
 			obsDict[k]['base crit score'] = round(base_crit_sum,2)
 			obsDict[k]['community crit score'] = round(comm_crit_sum/weights,2)
