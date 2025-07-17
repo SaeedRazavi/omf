@@ -324,7 +324,7 @@ def getPercentile(loads, columnName, tieBreaker=None):
 	for i, (k, v) in enumerate(loads.items()):
 		if not isinstance(v, dict):
 			raise ValueError(f"Invalid load format for key '{k}'. Expected a dictionary.")
-		loads[k][new_str] = round(result[i], 2)
+		loads[k][new_str] = result[i]
 
 def coordCheck(long, lat, geoList):
 	"""
@@ -446,7 +446,7 @@ def getDownLineLoadsEquipmentBlockGroup(pathToOmd, equipmentList,avgPeakDemand, 
 				loadsDict[key] = {"base crit score":None}
 				kw, kvar, kva = getPowerMeasures(ob)
 				loadsDict[key]['kva'] = kva
-				loadsDict[key]["base crit score"] = round(((math.sqrt((kw * kw) + (kvar * kvar) ))/ float(avgPeakDemand)) * 4,2)
+				loadsDict[key]["base crit score"] = ((math.sqrt((kw * kw) + (kvar * kvar) ))/ float(avgPeakDemand)) * 4
 				if obName in sectionsDict:
 					loadsDict[key]['section'] = sectionsDict[obName]
 				else:
@@ -519,12 +519,11 @@ def getDownLineLoadsEquipmentBlockGroup(pathToOmd, equipmentList,avgPeakDemand, 
 					else:
 						avgZillowPrice = 1
 						loadsDict[key]["zillow price"] = avgZillowPrice
-					# TODO: Isn't this rounding happening too early when there are more calcs to be done in the future? Could lead to errors later. Remove rounding here and add it back closer to where data is displayed. 
-					loadsDict[key]["community crit score"] = round((loadsDict[key]["base crit score"] * svi_score) / (avgZillowPrice/10000),2)
-					loadsDict[key]["affluence score"] = round(avgZillowPrice / 1000,2)
+					loadsDict[key]["community crit score"] = (loadsDict[key]["base crit score"] * svi_score) / (avgZillowPrice/10000)
+					loadsDict[key]["affluence score"] = avgZillowPrice / 1000
 				else:
-					loadsDict[key]["community crit score"] = round((loadsDict[key]["base crit score"] * svi_score),2)
-				loadsDict[key]['SOVI_SCORE'] = round(svi_score,4)
+					loadsDict[key]["community crit score"] = (loadsDict[key]["base crit score"] * svi_score)
+				loadsDict[key]['SOVI_SCORE'] = svi_score
 	getPercentile(loadsDict, "base crit score", 'distance_from_source')
 	getPercentile(loadsDict, 'community crit score', 'distance_from_source')
 	# calculate loads data for blockgroups
@@ -655,7 +654,7 @@ def getDownLineLoadsBlockGroup(pathToOmd, avgPeakDemand):
 		if (obType == 'load'):
 			loadsDict[key] = {"base crit score":None}
 			kw = float(ob['kw'])
-			kvar = float(ob['kvar']) if ob['kvar'] else kw/avgPeakDemand
+			kvar = float(ob['kvar']) if ob['kvar'] is not None else kw/avgPeakDemand
 			kv = float(ob['kv'])
 			loadsDict[key]["base crit score"]= ((math.sqrt((kw * kw) + (kvar * kvar) ))/ (avgPeakDemand)) * 4
 			long = float(ob['longitude'])
@@ -703,7 +702,7 @@ def getDownLineLoadsBlockGroup(pathToOmd, avgPeakDemand):
 		if (obType == 'load'):
 			currBlockGroup = loadsDict[key]['blockgroup']
 			svi_score = sviDF[sviDF['blockgroupFIPS'] == currBlockGroup]['SOVI_SCORE'].values[0]
-			loadsDict[key]["community crit score"] = round( loadsDict[key]["base crit score"] *  svi_score,2)
+			loadsDict[key]["community crit score"] = loadsDict[key]["base crit score"] *  svi_score
 			loadsDict[key]['SOVI_SCORE'] = svi_score
 	getPercentile(loadsDict, "base crit score")
 	getPercentile(loadsDict, 'community crit score')
@@ -752,8 +751,8 @@ def BaseCriticallityWeightedAvg(obsDict, loadsDict):
 				weights+=ob['SOVI_SCORE']
 				comm_crit_sum+=ob['community crit score'] 
 				base_crit_sum+=ob['base crit score']
-			obsDict[k]['base crit score'] = round(base_crit_sum,2)
-			obsDict[k]['community crit score'] = round(comm_crit_sum/weights,2)
+			obsDict[k]['base crit score'] = base_crit_sum
+			obsDict[k]['community crit score'] = comm_crit_sum/weights
 		else:
 			obsDict[k]['base crit score'] = 0
 			obsDict[k]['community crit score'] = 0
@@ -1033,7 +1032,7 @@ def calculateAvg_prices(data):
 			avg_price = sum(prices) / len(prices)
 			if prices_per_sqft:
 				avg_price_per_sqft = sum(prices_per_sqft) / len(prices_per_sqft)
-				return round(avg_price, 2), round(avg_price_per_sqft,2)
+				return avg_price, avg_price_per_sqft
 			else:
 				print("Error calculating prices per sqft")
 				return avg_price, None
@@ -1447,17 +1446,18 @@ def work(modelDir, inputDict):
 	outData['geojsonData'] = open(geoJson_shapes_file, 'r').read()
 	
 	# Collect Loads Data Table Info
+	smartRound = lambda x: round(x,2) if isinstance(x,float) else x
 	tableRows1 = []
 	for load_names,v in loads.items():
 		row = (
 			load_names,
 			v.get('section'),
-			v.get('base crit score'),
-			v.get('base crit index'),
-			v.get('community crit score'),
-			v.get('community crit index'),
-			v.get('SOVI_SCORE'),
-			v.get('affluence score')
+			round(v.get('base crit score'),2),
+			round(v.get('base crit index'),2),
+			round(v.get('community crit score'),2),
+			round(v.get('community crit index'),2),
+			round(v.get('SOVI_SCORE'),4),
+			smartRound(v.get('affluence score'))
 		)
 		tableRows1.append(row)
 	outData['loadTableHeadings'] = ['Load Name','Section', 'Base Criticality Score', 'Base Criticality Index','Community Criticality Score', 'Community Criticality Index', 'Social Vulnerability', 'Affluence Score']
@@ -1469,10 +1469,10 @@ def work(modelDir, inputDict):
 		row = (
 			object_names,
 			v.get('section'),
-			v.get('base crit score'),
-			v.get('base crit index'),
-			v.get('community crit score'),
-			v.get('community crit index')
+			round(v.get('base crit score'),2),
+			round(v.get('base crit index'),2),
+			round(v.get('community crit score'),2),
+			round(v.get('community crit index'),2)
 			)
 		tableRows2.append(row)
 	outData['loadTableHeadings2'] = ['Equipment Name', 'Section', 'Base Criticality Score', 'Base Criticallity Index', 'Community Criticality Score', 'Community Criticality Index']
@@ -1485,8 +1485,8 @@ def work(modelDir, inputDict):
 	if not useZillow:
 		headers3.remove('Affluent Score')
 		cols.remove('avg_zillow_price')
-	smartRound = lambda x: round(x,2) if pd.notnull(x) else None
-	loadSections[cols[1:]] = loadSections[cols[1:]].map(smartRound)
+	smartRound4DF = lambda x: round(x,2) if pd.notnull(x) else None
+	loadSections[cols[1:]] = loadSections[cols[1:]].map(smartRound4DF)
 	tableRows3 = list(loadSections[cols].itertuples(index=False, name=None))
 	outData['loadTableHeadings3'] = headers3
 	outData['loadTableValues3'] = tableRows3
