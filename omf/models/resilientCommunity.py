@@ -1361,13 +1361,21 @@ def work(modelDir, inputDict):
 	''' Run the model in its directory. '''
 	outData = {}
 	# files
-	omd_file_path = pJoin(modelDir, inputDict['inputDataFileName'])
+	feederName = [x for x in os.listdir(modelDir) if x.endswith('.omd') and x != 'color_test.omd'][0][:-4]
+	inputDict['feederName1'] = feederName
+	omd_file_path = pJoin(modelDir, feederName+'.omd')
 	# census_nri_path = pJoin(omf.omfDir,'static','testFiles','resilientCommunity', 'census_and_NRI_database_MAR2023.json')
 	#loads_file_path = pJoin(omf.omfDir,'static','testFiles','resilientCommunity', 'loads2.json')
 	#obs_file_path = pJoin(omf.omfDir,'static','testFiles','resilientCommunity', 'objects3.json')
 	geoJson_shapes_file = pJoin(modelDir, 'geoshapes.geojson')
 	sviDF_file = pJoin(modelDir, 'sviDF.csv')
-	loadsPath = pJoin(omf.omfDir,'static','testFiles','resilientCommunity','restorationLoads.csv')
+	# Create a copy of the customer info file in modeldir
+	custInfoPath = pJoin(modelDir, inputDict['customerFileName'])
+	# TODO: Figure out why inputDict['customerData'] is an empty string when work() is run without explicitly uploading something, despite it working when a file is uploaded manually through the gui
+	# only do the following if customerData is empty. Part of a workaround for issue with empty customer data file. 
+	if inputDict['customerData'] != '':
+		with open(custInfoPath, 'w') as ciFile:
+			ciFile.write(inputDict['customerData'])
 	zillowPricesPath= pJoin(omf.omfDir,'static','testFiles','resilientCommunity','zillowPrices.json')
 	# check if census data json is downloaded
 	# if not download
@@ -1396,7 +1404,7 @@ def work(modelDir, inputDict):
 	# check downline loads
 	#loads_typeList = [item.lower() for item in inputDict['load_type'] ]
 	#obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], loadsPath, loads_typeList, zillowPricesPath, True)
-	obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], loadsPath, loads_typeList)
+	obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], custInfoPath, loads_typeList)
 	# color vals based on selected column
 	createColorCSVBlockGroup(modelDir, loads, obDict)
 	if(inputDict['loadCol'] == 'Base Criticality Score'):
@@ -1502,12 +1510,15 @@ def test():
 
 def new(modelDir):
 	omdfileName = 'ieee37_LBL_simplified'
+	customerFileName = 	[omf.omfDir,'static','testFiles','resilientCommunity','restorationLoads.csv']
+	customerFileData = open(pJoin(*customerFileName)).read()
 	#omdfileName = 'iowa240_in_Florida_modified'
 	#omdfileName = 'iowa240_dwp_22_no_show_voltage.dss'
 	defaultInputs = {
 		"modelType": modelName,
-		"inputDataFileName": omdfileName + '.omd',
 		"feederName1": omdfileName,
+		"customerFileName": customerFileName[-1],
+		"customerFileData": customerFileData,
 		"averageDemand": 2.0,
 		"lines":'Yes',
 		"transformers":'Yes',
@@ -1526,6 +1537,11 @@ def new(modelDir):
 		shutil.copyfile(pJoin(__neoMetaModel__._omfDir, "static", "testFiles","resilientCommunity", defaultInputs["feederName1"]+'.omd'), pJoin(modelDir, defaultInputs["feederName1"]+'.omd'))
 	except:
 		return False
+	# For some reason even though the customer data is being passed correctly from the file into the default inputs, when work is run, the customer data is empty
+	custInfoPath = pJoin(modelDir, customerFileName[-1])
+	with open(custInfoPath, 'w') as ciFile:
+		ciFile.write(customerFileData)
+	
 	return creationCode
 
 @neoMetaModel_test_setup
