@@ -774,7 +774,7 @@ def addLoadInfoToOmd(loadsDict, omdDict):
 			k = obType + '.' + obName
 			bcs_score = loadsDict[k]['base crit score']
 			ccs_score = loadsDict[k]['community crit score']
-			bcs_index = loadsDict[k]['base crit score']
+			bcs_index = loadsDict[k]['base crit index']
 			ccs_index = loadsDict[k]['community crit index']
 			ob['base crit score'] = bcs_score
 			ob['community crit score'] = ccs_score
@@ -818,7 +818,7 @@ def createColorCSVBlockGroup(modelDir, loadsDict, objectsDict):
 	newobjectsDict = {k.split('.')[1]:v for k,v in objectsDict.items()}
 	combined_dict = {**newloadsDict, **newobjectsDict}
 	new_df = pd.DataFrame.from_dict(combined_dict, orient='index')
-	new_df[['base crit score','blockgroup','community crit score','SOVI_SCORE','base crit index','community crit index']].to_csv(pJoin(modelDir, 'color_by.csv'), index=True)
+	new_df[['base crit score','community crit score','base crit index','community crit index']].to_csv(pJoin(modelDir, 'color_by.csv'), index=True)
 
 def buildsviBlockGroup(blockgroupFIPS):
 	'''
@@ -1403,18 +1403,18 @@ def work(modelDir, inputDict):
 
 	# check downline loads
 	#loads_typeList = [item.lower() for item in inputDict['load_type'] ]
-	#obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], loadsPath, loads_typeList, zillowPricesPath, True)
+	#obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], custInfoPath, loads_typeList, zillowPricesPath, True)
 	obDict, loads, geoDF, sviDF, loadSections = getDownLineLoadsEquipmentBlockGroup(omd_file_path, equipmentList,inputDict['averageDemand'], custInfoPath, loads_typeList)
 	# color vals based on selected column
 	createColorCSVBlockGroup(modelDir, loads, obDict)
 	if(inputDict['loadCol'] == 'Base Criticality Score'):
 		colVal = "1"
 	elif (inputDict['loadCol'] == 'Community Criticality Score'):
-		colVal = "5"
+		colVal = "2"
 	elif(inputDict['loadCol'] == 'Base Criticality Index'):
-		colVal = "6"
+		colVal = "3"
 	elif(inputDict['loadCol'] == 'Community Criticality Index'):
-		colVal = "7"
+		colVal = "4"
 	else:
 		colVal = None
 	# Load Geojson file more efficiently
