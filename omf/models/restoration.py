@@ -1129,8 +1129,13 @@ def getResComInfo(modelDir, pathToOmd, useLci, rescomOutputFilePath):
 	lcsDict = {}
 	bcsDict = {}
 	if useLci == 'Yes':
-		with open(rescomOutputFilePath, mode='r') as f:
-			rescomLoadDict = json.load(f)
+		try:
+			with open(rescomOutputFilePath, mode='r') as f:
+				rescomLoadDict = json.load(f)
+		except TypeError:
+			raise Exception('ERROR: You may have selected "Yes" for "Use LCI" without uploading a valid .json file to "Load LCI Data (.json file)".')
+		except Exception as e:
+			raise e
 		for loadName in completeLoadList:
 			loadData = rescomLoadDict.get(f'load.{loadName}')
 			if loadData != None:
@@ -1974,10 +1979,13 @@ def copyInputFilesToModelDir(modelDir, inputDict):
 		pathToLocalFile['event'] = eFile.name
 		eFile.write(inputDict['eventData'])
 
-	with open(pJoin(modelDir, inputDict['rescomOutputFileName']), 'w') as eFile:
-		pathToLocalFile['rescomOutput'] = eFile.name
-		eFile.write(inputDict['rescomOutputData'])
-	
+	if inputDict['rescomOutputFileName'] != '':
+		with open(pJoin(modelDir, inputDict['rescomOutputFileName']), 'w') as eFile:
+			pathToLocalFile['rescomOutput'] = eFile.name
+			eFile.write(inputDict['rescomOutputData'])
+	else:
+		pathToLocalFile['rescomOutput'] = None
+
 	return pathToLocalFile
 
 def simplifyFeeder(inDss, outDss, maxBessCharge=True):
