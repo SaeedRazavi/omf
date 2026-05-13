@@ -129,7 +129,7 @@ def nodeToCoords(feederMap, nodeName):
 		if (nodeName.casefold() == key['properties'].get('name','').casefold()):
 			current = key['geometry']['coordinates']
 			coordLis = coordsFromString(current)
-			coordStr = str(coordLis[0]) + ' ' + str(coordLis[1])
+			coordStr = str(coordLis[1]) + ' ' + str(coordLis[0])
 	return coordLis, coordStr
 
 def lineToCoords(tree, feederMap, lineName):
@@ -153,7 +153,7 @@ def lineToCoords(tree, feederMap, lineName):
 				coordLis.append(coordLis1[1])
 				coordLis.append(coordLis2[0])
 				coordLis.append(coordLis2[1])
-				coordStr = str(coordLis[0]) + ' ' + str(coordLis[1]) + ' ' + str(coordLis[2]) + ' ' + str(coordLis[3])
+				coordStr = str(coordLis[1]) + ' ' + str(coordLis[0]) + ' ' + str(coordLis[3]) + ' ' + str(coordLis[2])
 		except:
 			print('BAD COORDS for', tree[key])
 	return coordLis, coordStr
@@ -259,7 +259,8 @@ def collectkWLostData(mgIDs, obMgDict, loadShapesPerLoad, outputTimeline, startT
 	loadList = list(loadShapesPerLoad.keys())
 	timeList = [*range(startTime, numTimeSteps+startTime)]
 	dfLoadTimeln, dfStatus = makeLoadOutTimelnAndStatusMap(outputTimeline, loadList, timeList)	
-	outLoadStatusDict = dfStatus.loc[:, (dfStatus == 0).any(axis=0)].to_dict(orient='list')
+	#outLoadStatusDict = dfStatus.loc[:, (dfStatus == 0).any(axis=0)].to_dict(orient='list')
+	outLoadStatusDict = dfStatus.to_dict(orient='list')
 	kWLost = []
 	kWTotal = []
 	kWLostCumulative = []
@@ -1243,8 +1244,8 @@ def runMicrogridControlSim(modelDir, solFidelity, eventsFilename, loadPriorityFi
 	)	
 
 	# Give extra time for output.json to be written since it's a big file and we've encountered issues where the code will move on from run_onm() before the output file is finished writing
-	maxWait = 60*5
-	waitTime = 3
+	maxWait = 60*15
+	waitTime = 30
 	maxIters = maxWait//waitTime
 	for i in range(0,maxIters):
 		print(f'{(waitTime*i)//60}m {(waitTime*i)%60}s elapsed since PowerModelsONM finished running.')
@@ -1336,6 +1337,8 @@ def genProfilesByMicrogrid(mgIDs, obMgDict, powerflow, simTimeSteps, startTime, 
 		hovertemplate=
 		'<b>Time Step</b>: %{x}<br>' +
 		f'<b>Demand Not Served</b>: %{{y:.3f}}kW'))
+
+	# Traces for debugging. Do not leave these uncommented when pushing
 	"""
 	gensFigure.add_trace(go.Scatter(
 		fill='tonexty',
@@ -1348,6 +1351,33 @@ def genProfilesByMicrogrid(mgIDs, obMgDict, powerflow, simTimeSteps, startTime, 
 		hovertemplate=
 		'<b>Time Step</b>: %{x}<br>' +
 		f'<b>Total Demand Scheduled</b>: %{{y:.3f}}kW'))
+
+	totalPowerFlow = pfDataSystemwide.sum(axis=1).to_list()
+	factor = [powerflow/projected for powerflow, projected in zip(totalPowerFlow,kWTotal)]
+
+	gensFigure.add_trace(go.Scatter(
+		fill='tonexty',
+		stackgroup='group4',
+		x=simTimeSteps,
+		y=totalPowerFlow,
+		mode='lines',
+		line_shape='hv',
+		name='Total Power Flow',
+		hovertemplate=
+		'<b>Time Step</b>: %{x}<br>' +
+		f'<b>Total Power Flow</b>: %{{y:.3f}}kW'))
+	
+	gensFigure.add_trace(go.Scatter(
+		fill='tonexty',
+		stackgroup='group5',
+		x=simTimeSteps,
+		y=factor,
+		mode='lines',
+		line_shape='hv',
+		name='Factor (total power flow / scheduled demand)',
+		hovertemplate=
+		'<b>Time Step</b>: %{x}<br>' +
+		f'<b>Factor (total power flow / scheduled demand)</b>: %{{y:.3f}}'))
 	"""
 	gensFigure.update_layout(
 		xaxis_title='Time (Hours)',
@@ -1599,11 +1629,11 @@ def graphMicrogrid(modelDir, pathToOmd, pathToJson, pathToCsv, loadPriorityFile,
 			mgID = None
 			kW = None
 			if isinstance(rawCoords[0], float):
-				coordStr = f'({rawCoords[0]},{rawCoords[1]})'
+				coordStr = f'({rawCoords[1]},{rawCoords[0]})'
 				mgID = obMgDict.get(name, busMgDict.get(name,'no MG ID'))
 				kW = props.get('kw')
 			else:
-				coordStr = f'({rawCoords[0][0]},{rawCoords[0][1]}), ({rawCoords[1][0]},{rawCoords[1][1]})'
+				coordStr = f'({rawCoords[0][1]},{rawCoords[0][0]}), ({rawCoords[1][1]},{rawCoords[1][0]})'
 			props['popupContent'] =	f'''Location: <b>{coordStr}</b><br>
 										Device: <b>{name}</b><br>
 										''' 
@@ -2068,6 +2098,9 @@ def simplifyFeeder(inDss, outDss, maxBessCharge=True):
 
 """
 def sanityCheck(dssLocation):
+	''' Function to provide a comparison of active power, apparent power, and total solved power at each load for each timestep.
+		Used to check against cumulative kWh measured based on mult and base kW of circuit objects. 
+	'''
 	textCommands = 	f'''Compile "{dssLocation}"
 						new object=monitor.feederHead element=transformer.sub_xfmr terminal=1 mode=1 ppolar=no
 						set maxiterations=1000
@@ -2084,6 +2117,7 @@ def sanityCheck(dssLocation):
 	p3 = np.array(dss.Monitors.Channel(5))
 	s = lambda p,q: (p**2 + q**2)**0.5
 	ch = lambda a: dss.Monitors.Channel(a)
+	# p = active power, s = reactive power
 	pTotal = p1+p2+p3
 	sTotal = s(ch(1),ch(2))+s(ch(3),ch(4))+s(ch(5),ch(6))
 	# Recompile freshly and Sum power for all loads individually as a sanity check on the sanity check
@@ -2163,6 +2197,8 @@ def work(modelDir, inputDict):
 		loadBcsDict				= loadBcsDict,
 		useLci					= inputDict['useLci']
 	)
+
+	# Sanity check traces for debugging. Do not leave these uncommented when pushing
 	"""
 	p,s,l = sanityCheck(pJoin(modelDir,'circuit_simplified.dss'))
 	plotOuts['gens'].add_trace(go.Scatter(
@@ -2178,7 +2214,7 @@ def work(modelDir, inputDict):
 		f'<b>Total p</b>: %{{y:.3f}}kW'))
 	plotOuts['gens'].add_trace(go.Scatter(
 		fill='tonexty',
-		stackgroup='group4',
+		stackgroup='group6',
 		x=[*range(1,25)],
 		y=s,
 		mode='lines',
@@ -2189,9 +2225,9 @@ def work(modelDir, inputDict):
 		f'<b>Total s</b>: %{{y:.3f}}kW'))
 	plotOuts['gens'].add_trace(go.Scatter(
 		fill='tonexty',
-		stackgroup='group5',
+		stackgroup='group7',
 		x=[*range(1,25)],
-		y=s,
+		y=l,
 		mode='lines',
 		line_shape='hv',
 		name='loadProfile (sum of solved power of each load at each timestep)',
