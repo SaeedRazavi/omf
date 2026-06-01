@@ -66,7 +66,7 @@
 			
 			<!-- Required Inputs -->
 			<div class="shortInput">
-				<label>Model Type <a href="https://github.com/dpinney/omf/wiki/Models-~-derUtilityCost" target="blank">Help?</a></label>
+				<label>Model Type <a href="/docs/Models-~-derUtilityCost" target="_blank">Help?</a></label>
 				<input type="text" id="modelType" name="modelType" value="{{modelName}}" readonly/>
 			</div>
 			<div class="shortInput">
@@ -101,7 +101,7 @@
 				</div>
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Curve in &degC (.csv file)<span class="classic">Please see the documentation at the help link for the required format and an example temperature file.</span></label>
+				<label class="tooltip">Temperature Curve in &degF (.csv file)<span class="classic">Please see the documentation at the help link for the required format and an example temperature file.</span></label>
 				<input id="temperatureCurveFile" type="file" style="display:none" onchange="handle_files(this.files,'temperatureCurve','temperatureFileName')">
 				<input id="temperatureCurve" name="temperatureCurve" value="{{allInputDataDict.temperatureCurve}}" type="hidden">
 				<div>
@@ -122,18 +122,30 @@
 				<input type="text" id="year" name="year" value="{{allInputDataDict.year}}" pattern="^\d{4}$" required="required"/>
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Use the user-provided random numbers?<span class="classic">If 'Yes' model will use all user-provided random numbers including the PuLP Random Seed and the Random Numbers for Water Heater (.csv) file. If 'No' the model will generate all numbers needed and save them in the model outputs. Please see the documentation at the help link for more information.</span></label>
+				<label class="tooltip">Use the user-provided random numbers?<span class="classic">If 'Yes' model will use all user-provided inputs for the Random Seeds (BESS & GEN, AC, HP, WH) and the Random Numbers for Water Heater (.csv) file. If 'No' the model will generate all numbers needed and save them in the model outputs. Please see the documentation at the help link for more information.</span></label>
 				<select id="set_random_numbers" name="set_random_numbers" value="{{allInputDataDict.set_random_numbers}}">
 					<option value='Yes' {{ 'selected' if allInputDataDict.set_random_numbers == 'Yes' }}>Yes</option>
 					<option value='No' {{ 'selected' if allInputDataDict.set_random_numbers == 'No' }}>No</option>
 				</select>
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">PuLP Random Seed<span class="classic">A deterministic random seed number for the PuLP optimizer used by all thermal technologies (WH, HP, AC). Must be a positive integer between 0 and 1000000. Please see the documentation at the help link for more information.</span></label>
-				<input type="text" id="random_seed_PuLP" name="random_seed_PuLP" value="{{allInputDataDict.random_seed_PuLP}}" pattern="^\d+\.?\d*?$" required="required">
+				<label class="tooltip">Random Seed - BESS & GEN<span class="classic">A deterministic random seed number for the HiGHS optimizer used for the BESS and GEN technologies. Must be a positive integer between 0 and 2147483647. Please see the documentation at the help link for more information.</span></label>
+				<input type="number" id="random_seed_HiGHS_REopt" name="random_seed_HiGHS_REopt" value="{{allInputDataDict.random_seed_HiGHS_REopt}}" pattern="^\d+\.?\d*?$" min="0" max="2147483647" required="required" >
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Random Numbers for Water Heater (.csv file)<span class="classic"> A file with random numbers that will help determine the water heater's water draw in gallons per minute. If the 'Use the user-provided random numbers?' input is set to 'Yes', the model will use the provided file. If 'No', the model will generate and save a water_heater_random_numbers.csv file in the ouput files, which the user can re-upload here. Please see the documentation at the help link for the required format and example file.</span></label>
+				<label class="tooltip">Random Seed - AC<span class="classic">A deterministic random seed number for the PuLP optimizer used for the air conditioner technology. Must be a positive integer between 0 and 2147483647. Please see the documentation at the help link for more information.</span></label>
+				<input type="number" id="random_seed_PuLP_ac" name="random_seed_PuLP_ac" value="{{allInputDataDict.random_seed_PuLP_ac}}" pattern="^\d+\.?\d*?$" min="0" max="2147483647" required="required">
+			</div>
+			<div class="shortInput">
+				<label class="tooltip">Random Seed - HP<span class="classic">A deterministic random seed number for the PuLP optimizer used for the heat pump technology. Must be a positive integer between 0 and 2147483647. Please see the documentation at the help link for more information.</span></label>
+				<input type="number" id="random_seed_PuLP_hp" name="random_seed_PuLP_hp" value="{{allInputDataDict.random_seed_PuLP_hp}}" pattern="^\d+\.?\d*?$" min="0" max="2147483647" required="required">
+			</div>
+			<div class="shortInput">
+				<label class="tooltip">Random Seed - WH<span class="classic">A deterministic random seed number for the PuLP optimizer used for the water heater technology. Must be a positive integer between 0 and 2147483647. Please see the documentation at the help link for more information.</span></label>
+				<input type="number" id="random_seed_PuLP_wh" name="random_seed_PuLP_wh" value="{{allInputDataDict.random_seed_PuLP_wh}}" pattern="^\d+\.?\d*?$" min="0" max="2147483647" required="required">
+			</div>
+			<div class="shortInput">
+				<label class="tooltip">Random Numbers for Water Heater (.csv file)<span class="classic"> A .csv file containing the random numbers to determine the water heater's water draw in gallons per minute. If the 'Use the user-provided random numbers?' input is set to 'Yes', the model will use the provided file. If 'No', the model will generate and save the water heater random numbers to a .csv file in the output files. Please see the documentation at the help link for the required format and example file.</span></label>
 				<input id="randomNumbersFile" type="file" style="display:none" onchange="handle_files(this.files,'randomNumbers','randomNumbersFileName')">
 				<input id="randomNumbers" name="randomNumbers" value="{{allInputDataDict.randomNumbers}}" type="hidden">
 				<div>
@@ -362,14 +374,13 @@
 				<input type="text" id="cop_ac" name="cop_ac" value="{{allInputDataDict.cop_ac}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Setpoint (&degC)<span class="classic">Setpoint for each home thermal device. Must be between 1.7 and 54.</span></label>
+				<label class="tooltip">Temperature Setpoint (&degF)<span class="classic">Setpoint for each home thermal device. Must be between 35.06 and 129.2.</span></label>
 				<input type="text" id="setpoint_ac" name="setpoint_ac" value="{{allInputDataDict.setpoint_ac}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Deadband (&degC)<span class="classic">Deadband for each home thermal device. Must be between 0.125 and 2.</span></label>
+				<label class="tooltip">Temperature Deadband (&degF)<span class="classic">Deadband for each home thermal device. Must be between 0.225 and 3.6.</span></label>
 				<input type="text" id="deadband_ac" name="deadband_ac" value="{{allInputDataDict.deadband_ac}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
-
 
 			<!-- Heat Pump (vbatDispatch) Inputs -->
 			<div class="wideInput"> 
@@ -392,23 +403,26 @@
 				<input type="text" id="power_hp" name="power_hp" value="{{allInputDataDict.power_hp}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
+				<!-- <label class="tooltip">Thermal Capacitance (kWh/&degC)<span class="classic">Capacitance of each home thermal device. Must be between 0.2 and 2.5 with exactly one decimal digit.</span></label>-->
 				<label class="tooltip">Thermal Capacitance (kWh/&degC)<span class="classic">Capacitance of each home thermal device. Must be between 0.2 and 2.5 with exactly one decimal digit.</span></label>
 				<input type="text" id="capacitance_hp" name="capacitance_hp" value="{{allInputDataDict.capacitance_hp}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
+				<!--<label class="tooltip">Thermal Resistance (&degC/kW)<span class="classic">Resistance of each home thermal device. Must be between 1.5 and 140.</span></label>-->
 				<label class="tooltip">Thermal Resistance (&degC/kW)<span class="classic">Resistance of each home thermal device. Must be between 1.5 and 140.</span></label>
 				<input type="text" id="resistance_hp" name="resistance_hp" value="{{allInputDataDict.resistance_hp}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>			
 			<div class="shortInput">
+				<!--<label class="tooltip">Coefficient of Performance<span class="classic">Coefficient of performance of each home thermal device. Must be between 1 and 3.5</span></label>-->
 				<label class="tooltip">Coefficient of Performance<span class="classic">Coefficient of performance of each home thermal device. Must be between 1 and 3.5</span></label>
 				<input type="text" id="cop_hp" name="cop_hp" value="{{allInputDataDict.cop_hp}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Setpoint (&degC)<span class="classic">Setpoint for each home thermal device. Must be between 1.7 and 54.</span></label>
+				<label class="tooltip">Temperature Setpoint (&degF)<span class="classic">Setpoint for each home thermal device. Must be between 35.06 and 129.2.</span></label>
 				<input type="text" id="setpoint_hp" name="setpoint_hp" value="{{allInputDataDict.setpoint_hp}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Deadband (&degC)<span class="classic">Deadband for each home thermal device. Must be between 0.125 and 2.</span></label>
+				<label class="tooltip">Temperature Deadband (&degF)<span class="classic">Deadband for each home thermal device. Must be between 0.225 and 3.6.</span></label>
 				<input type="text" id="deadband_hp" name="deadband_hp" value="{{allInputDataDict.deadband_hp}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 
@@ -445,11 +459,11 @@
 				<input type="text" id="cop_wh" name="cop_wh" value="{{allInputDataDict.cop_wh}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Setpoint (&degC)<span class="classic">Setpoint for each home thermal device. Must be between 1.7 and 54.</span></label>
+				<label class="tooltip">Temperature Setpoint (&degF)<span class="classic">Setpoint for each home thermal device. Must be between 35.06 and 129.2.</span></label>
 				<input type="text" id="setpoint_wh" name="setpoint_wh" value="{{allInputDataDict.setpoint_wh}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 			<div class="shortInput">
-				<label class="tooltip">Temperature Deadband (&degC)<span class="classic">Deadband for each home thermal device. Must be between 0.125 and 3.</span></label>
+				<label class="tooltip">Temperature Deadband (&degF)<span class="classic">Deadband for each home thermal device. Must be between 0.225 and 5.4.</span></label>
 				<input type="text" id="deadband_wh" name="deadband_wh" value="{{allInputDataDict.deadband_wh}}" pattern="^\d+\.?\d*?$" required="required">
 			</div>
 
@@ -615,7 +629,7 @@
 						//{"name":"Total Demand Charge Savings", "data": allOutputData.totalPeakDemandSavings_allDER_allyears, "color": "rgb(152,251,152)"},
 						//{"name":"Startup Costs", "data": allOutputData.startupCosts_allyears, "color": "rgb(240,128,128)"},
 						//{"name":"Operational Costs", "data": allOutputData.operationalCosts_allyears, "color": "rgb(246,164,130)"},
-						{"name":"Cumulative Savings", "type":"spline", "data": allOutputData.cumulativeSavings_total, "color": "black"}
+						//{"name":"Cumulative Savings", "type":"spline", "data": allOutputData.cumulativeSavings_total, "color": "black"}
 					],
 					"yAxis":{"title":{"text":"Income ($)","style":{"color":"gray"}}},
 					"chart":{"marginBottom":55,"zoomType":"x","renderTo":"cashFlowChartDiv2","type":"column","marginRight":20, "height":250,"width":1000},

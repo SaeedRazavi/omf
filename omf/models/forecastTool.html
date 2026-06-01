@@ -18,7 +18,7 @@
     <div id="input" class="content">
         <form name="inputForm" action="/runModel/" onsubmit="event.preventDefault(); return isFormValid();" method="post">
             <div class="shortInput">
-                <label>Model Type <a href="https://github.com/dpinney/omf/wiki/Models-~-forecastTool" target="blank">Help?</a></label>
+                <label>Model Type <a href="/docs/Models-~-forecastTool" target="_blank">Help?</a></label>
                 <input type="text" id="modelType" name="modelType" value="{{allInputDataDict.modelType}}" value="{{modelName}}" readonly/>
             </div>
             <div class="shortInput">
@@ -216,7 +216,7 @@
         <p class="reportTitle" style="page-break-before:always">Note</p>
         <div id="effectiveness" class="content detailsContainer" style="margin-top:0px">
             <p>
-                To see the model's effectiveness over the course of an entire year, consider viewing <a href="{{pathPrefix}}/newModel/storagePeakShave/fromForecastTool">storagePeakShave.py</a>.
+                To see the model's effectiveness over the course of an entire year, consider viewing <a href="javascript:post_to_url('{{pathPrefix}}/newModel/storagePeakShave/fromForecastTool')">storagePeakShave.py</a>.
             </p>
         </div>
         <!-- <p class="reportTitle" style="page-break-before:always">Download Output Data</p>   

@@ -1,4 +1,6 @@
-''' Generate interconnection results for EVs. '''
+"""
+Electric Vehicle Interconnection Analysis
+"""
 
 import json, os, shutil, csv, warnings, base64, platform
 from os.path import join as pJoin
@@ -16,7 +18,7 @@ from dateutil.relativedelta import *
 # OMF imports
 import omf
 from omf.models import voltageDrop, faultAnalysis
-import omf.solvers.REopt as REopt
+from omf.solvers import reopt_jl
 from omf.models import __neoMetaModel__
 from omf.models.__neoMetaModel__ import *
 
@@ -295,30 +297,24 @@ def work(modelDir, inputDict):
 		outData["loadVoltageDrop"] = base64.standard_b64encode(inFile.read()).decode('ascii')
 	# Create the input JSON file for REopt
 	scenario = {
-		"Scenario": {
-			"Site": {
-				"latitude": latitudeValue,
-				"longitude": longitudeValue,
-				"LoadProfile": {
-					"loads_kw": combinedLoadShapeValue,		#8760 value list
-					"year": yearValue 						#MUST BE THE CORRECT YEAR CORRELATING TO loads_kw!!
-				},
-				"ElectricTariff": {
-					"urdb_rate_name": "custom",
-					"blended_annual_rates_us_dollars_per_kwh": energyCostValue,
-					"blended_annual_demand_charges_us_dollars_per_kw": demandCostValue
-				},
-				"Wind": {
-					"max_kw": 0,
-					"max_kwh": 0
-				}
-			}
+		"Site": {
+			"latitude": latitudeValue,
+			"longitude": longitudeValue,
+		},
+		"ElectricLoad": {
+			"loads_kw": combinedLoadShapeValue,		#8760 value list
+			"year": yearValue 										#MUST BE THE CORRECT YEAR CORRELATING TO loads_kw!!
+		},
+		"ElectricTariff": {
+			"urdb_rate_name": "custom",
+			"blended_annual_energy_rate": energyCostValue, # "blended_annual_rates_us_dollars_per_kwh" $/kWh.
+			"blended_annual_demand_rate": demandCostValue # "blended_annual_demand_charges_us_dollars_per_kw" $/kW/month
 		}
 	}
 	with open(pJoin(modelDir, "Scenario_test_POST.json"), "w") as jsonFile:
 		json.dump(scenario, jsonFile)
 	# Run REopt API script
-	REopt.run(pJoin(modelDir, 'Scenario_test_POST.json'), pJoin(modelDir, 'results.json'))
+	reopt_jl.run_reopt_jl(modelDir, "Scenario_test_POST.json", run_with_sysimage=False)
 
 	#read results from json generated from REopt
 	with open(pJoin(modelDir, "results.json"), "r") as REoptFile:
@@ -328,7 +324,7 @@ def work(modelDir, inputDict):
 	# ********* If testing, set test_results_on_fail to True **********
 	test_results_on_fail = False
 	#check to see if REopt worked correctly. If not, use a cached results file for testing or raise exception. 
-	if REopt_output["outputs"]["Scenario"]["status"] != "optimal":
+	if REopt_output["status"] != "optimal":
 		if test_results_on_fail:
 			print("Continuing simulation with cached results in dummyResults.json...")
 			with open(pJoin(omf.omfDir, "static", "testFiles", "REoptDummyResults.json"), "r") as dummyResults:
@@ -338,8 +334,10 @@ def work(modelDir, inputDict):
 		
 
 	#find the values for energy cost with and without microgrid
-	REopt_ev_energy_cost = REopt_output["outputs"]["Scenario"]["Site"]["ElectricTariff"]["year_one_bill_bau_us_dollars"]
-	REopt_opt_energy_cost =	REopt_output["outputs"]["Scenario"]["Site"]["ElectricTariff"]["year_one_bill_us_dollars"]
+	# REopt_ev_energy_cost = REopt_output["outputs"]["Scenario"]["Site"]["ElectricTariff"]["year_one_bill_bau_us_dollars"] # 2026-03 commented
+	# REopt_opt_energy_cost =	REopt_output["outputs"]["Scenario"]["Site"]["ElectricTariff"]["year_one_bill_us_dollars"]
+	REopt_ev_energy_cost = REopt_output["ElectricTariff"]["year_one_bill_before_tax_bau"]
+	REopt_opt_energy_cost = REopt_output["ElectricTariff"]["year_one_bill_before_tax"]
 	# REopt_ev_energy_cost = 100000
 	# REopt_opt_energy_cost =	90000
 
@@ -357,7 +355,9 @@ def work(modelDir, inputDict):
 
 	#get REopt's optimized load shape value list
 	# REoptLoadShape = REopt_output["outputs"]["Scenario"]["Site"]["LoadProfile"]["year_one_electric_load_series_kw"]
-	REoptLoadShape = REopt_output["outputs"]["Scenario"]["Site"]["ElectricTariff"]["year_one_to_load_series_kw"]
+	# REoptLoadShape = REopt_output["outputs"]["Scenario"]["Site"]["ElectricTariff"]["year_one_to_load_series_kw"] - 2026-03 commented
+	REoptLoadShape = REopt_output["ElectricUtility"]["electric_to_load_series_kw"]
+	
 
 	#Create the maxLoadShape image and REopt carpet plot
 	maxLoadShapeImg, REoptCarpetPlotImg = plotMaxLoadShape(
@@ -422,6 +422,9 @@ def new(modelDir):
 	return creationCode
 
 def _testingPlot():
+	"""
+	Internal helper for ev interconnection testing plot processing.
+	"""
 	PREFIX = omf.omfDir + '/scratch/CIGAR/'
 	# FNAME = 'test_base_R4-25.00-1.glm_CLEAN.glm'
 	# FNAME = 'test_Exercise_4_2_1.glm'
@@ -438,6 +441,9 @@ def _testingPlot():
 	# plt.show()
 
 def plotMaxLoadShape(loadShape=None, combined_load=None, hourly_con=None, REopt_load=None):
+	"""
+	Create a plot or display artifact for max load shape results.
+	"""
 	base_shape = loadShape
 	com_shape_REopt = REopt_load
 
@@ -509,6 +515,9 @@ def plotMaxLoadShape(loadShape=None, combined_load=None, hourly_con=None, REopt_
 	return maxLoadShape(day_shape, hourly_con, day_shape_REopt), carpet_plot(base_shape_REopt, hourly_con)
 
 def plotEVShape(modelDir, numVehicles=None, chargeRate=None, batterySize=None, startHour=None, endHour=None, chargeLimit=None, minCharge=None, maxCharge=None, loadShape=None, rezSqIn=None):
+	"""
+	Create a plot or display artifact for evshape results.
+	"""
 	shapes = []
 	for i in range(numVehicles):
 		# Random arrival
@@ -620,6 +629,9 @@ def plotEVShape(modelDir, numVehicles=None, chargeRate=None, batterySize=None, s
 	return max_val, evShape, carpet_plot(base_shape, hourly_con), hourly_con, combined
 
 def fuelCostCalc(numVehicles=None, batterySize=None, efficiency=None, energyCost=None, gasEfficiency=None, gasCost=None, workload=None):
+	"""
+	Perform fuel cost calc processing for the ev interconnection model.
+	"""
 	dailyGasAmount = workload/gasEfficiency #amount(gal) of gas used per vehicle, daily
 	dailyGasCost = dailyGasAmount*gasCost #amount($) spent on gas per vehicle, daily
 	totalGasCost = numVehicles*dailyGasCost #amount($) spent on gas daily for all vehicles
@@ -643,6 +655,9 @@ def fuelCostCalc(numVehicles=None, batterySize=None, efficiency=None, energyCost
 	return html_str
 
 def energyCostCalc(max_bau_load_shape = None, sum_bau_load_shape = None, demand_charge = None, energy_charge = None, REopt_EV_output=None, REopt_opt_output=None):
+	"""
+	Perform energy cost calc processing for the ev interconnection model.
+	"""
 	bau_energy_cost = max_bau_load_shape*demand_charge + sum_bau_load_shape*energy_charge
 	ev_energy_cost = REopt_EV_output
 	opt_energy_cost = REopt_opt_output
@@ -658,6 +673,9 @@ def energyCostCalc(max_bau_load_shape = None, sum_bau_load_shape = None, demand_
 @neoMetaModel_test_setup
 def _debug():
 	# Location
+	"""
+	Run this module's local smoke tests or debugging workflow.
+	"""
 	modelLoc = pJoin(__neoMetaModel__._omfDir,"data","Model","admin","Automated Testing of " + modelName)
 	# Blow away old test results if necessary.
 	try:

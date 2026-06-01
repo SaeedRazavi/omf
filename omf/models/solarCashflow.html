@@ -17,7 +17,7 @@
 	<div id="input" class="content">
 		<form name="inputForm" action="/runModel/" onsubmit="event.preventDefault(); return isFormValid();" method="post">
 			<div class="shortInput">
-				<label>Model Type <a href="https://github.com/dpinney/omf/wiki/Models-~-solarCashflow" target="blank">Help?</a></label>
+				<label>Model Type <a href="/docs/Models-~-solarCashflow" target="_blank">Help?</a></label>
 				<input type="text" id="modelType" name="modelType" value="{{allInputDataDict.modelType}}" value="{{modelName}}" readonly/>
 			</div>
 			<div class="shortInput">
@@ -496,7 +496,7 @@
 			<script>
 				irradianceSeriesData = [
 					{"name":"Plane of Array Irradiance","marker":{"enabled":false},"color":"gold","data":allOutputData.climate["Plane of Array Irradiance (W/m^2)"],"visible":true},
-					{"name":"Global Horizontal Radiation","marker":{"enabled":false},"color":"goldenrod","data":allOutputData.climate["Global Horizontal Radiation (W/m^2)"],"visible":true} ]
+					{"name":"Global Horizontal Irradiance","marker":{"enabled":false},"color":"goldenrod","data":allOutputData.climate["Global Horizontal Irradiance (W/m^2)"],"visible":true} ]
 				new Highcharts.Chart({"credits":{"enabled":false},
 					"plotOptions":{"series":{"animation": false, "pointStart":pointStart,"shadow":false,"pointInterval":pointInterval},"line":{"marker":{"enabled":true}}},
 					"xAxis":{"maxZoom":108000000,"tickColor":"gray","type":"datetime","lineColor":"gray",

@@ -1,10 +1,16 @@
-''' Design microgrid with optimal generation mix for economics and/or reliability. '''
+"""
+The multiSiteMicrogridDesign model uses a 1yr load profile to determine the most
+economical combination of solar, wind, and storage technologies to use in a microgrid.
+The model also provides basic resiliency analysis. The financial and resiliency
+optimization is performed using the NREL reOpt API
+"""
 import warnings, csv, json
 from io import StringIO
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import xlwt
+from openpyxl import Workbook
+from openpyxl.styles import Border, Font, PatternFill, Side
 import time
 import plotly
 import plotly.graph_objs as go
@@ -92,15 +98,16 @@ def work(modelDir, inputDict):
 	windMax = float(inputDict['windMax'])
 	batteryPowerMax = float(inputDict['batteryPowerMax'])
 	batteryCapacityMax = float(inputDict['batteryCapacityMax'])
+	batterySocMinFraction = float(inputDict['batterySocMinFraction'])
 	solarExisting = float(inputDict['solarExisting'])
 	fuelAvailable = float(inputDict['fuelAvailable'])
 	genExisting = float(inputDict['genExisting'])
 	minGenLoading = float(inputDict['minGenLoading'])
 	outage_start_hour = int(inputDict['outage_start_hour'])
 	outage_duration = int(inputDict['outageDuration'])
-	outage_end_hour = outage_start_hour + outage_duration
+	outage_end_hour = outage_start_hour + outage_duration - 1  # REopt end_time_step is inclusive: [start, end] = duration steps
 	if outage_end_hour > 8759:
-		outage_end_hour = 8760
+		outage_end_hour = 8759
 	value_of_lost_load = float(inputDict['value_of_lost_load'])
 	solarCanExport = inputDict['solarCanExport']
 	solarCanCurtail = inputDict['solarCanCurtail']
@@ -204,6 +211,8 @@ def work(modelDir, inputDict):
 				"Wind": {
 					"installed_cost_per_kw": windCost,
 					#"installed_cost_us_dollars_per_kw": windCost,
+					"can_export_beyond_nem_limit": solarCanExport,
+					"can_curtail": solarCanCurtail,
 					"min_kw": windMin,
 					"macrs_option_years": windMacrsOptionYears,
 					"federal_itc_fraction": windItcPercent
@@ -238,9 +247,25 @@ def work(modelDir, inputDict):
 				#scenario['Scenario']['ElectricTariff']["wholesale_rate_above_site_load_us_dollars_per_kwh"] = 0
 				scenario['ElectricTariff']['wholesale_rate'] = 0
 				#["wholesale_rate_us_dollars_per_kwh"] = 0
-		scenario['Wind']['max_kw'] = windMax
+		# REopt.jl's Wind struct does not support existing_kw (unlike PV which does).
+		# To give REopt the correct ceiling, manually add windExisting to windMax here, mirroring the effect of PV's existing_kw which REopt adds to max_kw internally
+		windExistingVal = float(inputDict.get('windExisting', 0))
+		scenario['Wind']['max_kw'] = windMax + windExistingVal
+		wind_mps = inputDict.get('windMetersPerSec')
+		if wind_mps:
+			scenario['Wind']['wind_meters_per_sec'] = wind_mps
+			wind_dir = inputDict.get('windDirectionDegrees')
+			wind_temp = inputDict.get('windTemperatureCelsius')
+			wind_press = inputDict.get('windPressureAtmospheres')
+			if wind_dir:
+				scenario['Wind']['wind_direction_degrees'] = wind_dir
+			if wind_temp:
+				scenario['Wind']['temperature_celsius'] = wind_temp
+			if wind_press:
+				scenario['Wind']['pressure_atmospheres'] = wind_press
 		scenario['ElectricStorage']['max_kw'] = batteryPowerMax
 		scenario['ElectricStorage']['max_kwh'] = batteryCapacityMax
+		scenario['ElectricStorage']['soc_min_fraction'] = batterySocMinFraction
 		# if outage_start_hour is > 0, a resiliency optimization that includes diesel is triggered
 		run_outages = True if outage_start_hour != 0 else False
 		if outage_start_hour == 0:
@@ -605,11 +630,20 @@ def work(modelDir, inputDict):
 
 		#todo: decide on ProForma output type (excel, html, or both)
 
-		workbook = xlwt.Workbook()
-		worksheet = workbook.add_sheet("Results Summary and Inputs")
+		workbook = Workbook()
+		worksheet = workbook.active
+		worksheet.title = "Results Summary and Inputs"
 
-		style_header = xlwt.easyxf('pattern: pattern solid, fore_color gray25; borders: left thin, right thin, top thin, bottom thin; font: bold on')
-		style_cell = xlwt.easyxf('borders: left thin, right thin, top thin, bottom thin')
+		thin_side = Side(style='thin', color='000000')
+		cell_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+		header_fill = PatternFill(fill_type='solid', fgColor='C0C0C0')
+		header_font = Font(bold=True)
+
+		def apply_cell_style(cell, is_header=False):
+			cell.border = cell_border
+			if is_header:
+				cell.fill = header_fill
+				cell.font = header_font
 
 		excel_row = 0
 		excel_col = 0
@@ -626,18 +660,21 @@ def work(modelDir, inputDict):
 				return
 			#writing single header if name given
 			if name:
-				worksheet.write_merge(start_row, start_row, start_col, start_col+cols-1, name, style_header)
+				worksheet.merge_cells(start_row=start_row + 1, start_column=start_col + 1, end_row=start_row + 1, end_column=start_col + cols)
+				cell = worksheet.cell(row=start_row + 1, column=start_col + 1, value=name)
+				apply_cell_style(cell, is_header=True)
 			for i in range(rows):
 				for j in range(cols):
 					if j >= len(table[i]):
 						continue
-					style = style_header if (i == 0 and not name) else style_cell
 					table_val = table[i][j]
 					x = start_row + i + 1 if name else start_row + i
 					y = start_col + j
-					worksheet.write(x,y,table_val,style)
-					if worksheet.col(j).width < len(str(table_val)) * 256:
-						worksheet.col(j).width = len(str(table_val)) * 256
+					cell = worksheet.cell(row=x + 1, column=y + 1, value=table_val)
+					apply_cell_style(cell, is_header=(i == 0 and not name))
+					column_letter = cell.column_letter
+					column_width = max(worksheet.column_dimensions[column_letter].width or 0, len(str(table_val)) + 2)
+					worksheet.column_dimensions[column_letter].width = column_width
 
 		#potential idea: dictionary mapping proforma row name to outdata variable (wouldn't be that much more efficient)
 		proforma_system_design = [
@@ -1125,6 +1162,7 @@ def new(modelDir):
 		"windMax": "10000000",
 		"batteryPowerMax": "1000000",
 		"batteryCapacityMax": "1000000",
+		"batterySocMinFraction": "0.2",
 		"dieselMax": "100000",
 		"solarExisting": 0,
 		"outage_start_hour": "500",
@@ -1152,9 +1190,12 @@ def new(modelDir):
 		return False
 	return creationCode
 
-#def _tests():
-def _debugging():
+@neoMetaModel_test_setup
+def _tests():
 		# Location
+	"""
+	Run this module's local smoke tests or debugging workflow.
+	"""
 	modelLoc = pJoin(__neoMetaModel__._omfDir,"data","Model","admin","Automated Testing of " + modelName)
 	# Blow away old test results if necessary.
 	try:
@@ -1172,5 +1213,4 @@ def _debugging():
 	__neoMetaModel__.renderAndShow(modelLoc)
 
 if __name__ == '__main__':
-	#_tests()
-	_debugging()
+	_tests()
