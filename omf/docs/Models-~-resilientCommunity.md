@@ -17,13 +17,13 @@ omf.models.resilientCommunity can be used to:
   * Create a plan to evacuate people, accounting for those who have special needs, such as those without vehicles, the elderly, or people who do not speak English well.
   * Identify areas where continued support will be needed to recover following an emergency or natural disaster.
 
-> After running an instance of resilientCommunity for the first time, subsequent runs of the same instance will be much faster, allowing for quick analysis with different input values. This is because data is cached for future use once retrieved from the web. 
+> ℹ️ After running an instance of resilientCommunity for the first time, subsequent runs of the same instance will be much faster, allowing for quick analysis with different input values. This is because data is cached for future use once retrieved from the web. 
 
 ***
 
 ### Walkthrough
 
-![image](https://github.com/nreca-bts/omf/blob/master/omf/docs/images/resilientCommunity_screenshots/resComInputs.png)
+<img src="./images/resilientCommunity_screenshots/resComInputs.png" alt="Alt text">
 
 
 The Resilient Community model requires the following user inputs:
@@ -37,7 +37,7 @@ _System Parameters_
 3. A Customer Information file, specifying the class of each load on the feeder, the name of the customer, and the peaking season for each load.
     * This is a CSV with the header: \
       `Customer Name,Season,Business Type,Load Name`
-    * The primary use of this file in Resilient Community is to determine which loads are labeled `residential` under the `Business Type` column. The format was chosen to match the format of the same input in the [Restoration model.](https://github.com/nreca-bts/omf/blob/master/omf/docs/Models-~-restoration.md)
+    * The primary use of this file in Resilient Community is to determine which loads are labeled `residential` under the `Business Type` column. The format was chosen to match the format of the same input in the [Restoration model.](./Models-~-restoration.md)
     * This file is required and must contain entries for all loads on the feeder.
 4. An Equipment Lifetime file, specifying the percentage of the way through the planned usable lifetime and the average restoration time for each piece of equipment listed. 
     * This is a CSV with the header: \
@@ -60,14 +60,18 @@ _Outage Impact Potential (OIP)_
 
 9. An Aggregation Method dropdown, specifying how the variables whose weights are chosen in 10. and 11. are aggregated to create Outage Impact Potential (OIP) for each census blockgroup.
     * For options containing the phrase "of Min-Max-Normalized", each variable is scaled between 0 and 1 based on their minimum and maximum values so that variables with different units and scales can be meaningfully combined. 
-    * "Average of Min-Max-Normalized" uses the weighted arithmetic mean to aggregate variables. Select this option to prioritize the impact of all values with the same weight equally in the aggregation.
+    * "Average of Min-Max-Normalized" uses the weighted arithmetic mean to aggregate variables. Select this option to prioritize the impact of all values with the same weight equally in the aggregation.  
+    
     ```math
         \text{OIP}_b = \frac{\sum\limits_{v \in V}w_v n_{v,b}}{\sum\limits_{v \in V}w_v}
-    ```
+    ```  
+    
     * "RMS of Min-Max-Normalized" uses the weighted Root-Mean-Square to aggregate variables. Select this option to prioritize the impact of larger values and diminish the impact of smaller values with the same weight in the aggregation. 
+    
     ```math
         \text{OIP}_b = \sqrt{\frac{\sum\limits_{v \in V}w_v n_{v,b}^2}{\sum\limits_{v \in V}w_v}}
-    ```
+    ```  
+
     * Equation Key:
         * $\text{OIP}_b$, the OIP Score for a blockgroup, $b$.
         * $V$, the set of variables used to calculate OIP. 
@@ -96,7 +100,7 @@ _Outage Impact Potential - Weather Hazards Annualized Frequency_
 
 ### Model Results
 
-![image](https://github.com/nreca-bts/omf/blob/master/omf/docs/images/resilientCommunity_screenshots/resComOutputs1.png)
+<img src="./images/resilientCommunity_screenshots/resComOutputs1.png" alt="Alt text">
 
 12. An Important message communicating to users that certain values are calculated relative to each other and only apply within the geographical bounds of the specific system being analyzed. As a result, OIP Rating, OIP Index, LCS, LCI, and BCI values cannot be compared between maps.
 
@@ -108,12 +112,12 @@ _Outage Impact Potential - Weather Hazards Annualized Frequency_
     * When a circuit element is clicked, a tooltip is brought up containing that element's data from the .omd feeder file with the addition of base crit score, base crit index, locational crit score, locational crit index, and section when applicable. If equipment lifetime information is provided for a circuit element in 4., avg hrs to restore and % through planned usable lifetime will be included in its tooltip. 
     * When a shape is clicked, a tooltip is brought up containing OIP Rating, OIP Score, and OIP Index (the percentile ranking of OIP score among other blockgroups on the map). The average values of BCS, LCS, BCI, and LCI for the blockgroup are also viewable as well as the Load Count, the total Demand (kva) of loads in the blockgroup, and the identifying Blockgroup FIPS. Below those are the blockgroup-specific values for each customer and weather variable, some or all of which may have been used to calculate OIP. 
     * Shapes can be toggled by clicking the checkbox next to "geoshapes.geojson" on the left side of the feeder map. If you are having trouble clicking a line on the map, try toggling shapes off and then reattempting to click on the line.  
-    ![image](https://github.com/nreca-bts/omf/blob/master/omf/docs/images/resilientCommunity_screenshots/resComCircuitMapColoring.png)
+    <img src="./images/resilientCommunity_screenshots/resComCircuitMapColoring.png" alt="Alt text">
     * Feeder map coloring can be changed after the model is run without rerunning the model by clicking "Edit" &rarr; "Color circuit" in the Resilient Community Map, as mentioned in 5.  
-    ![image](https://github.com/nreca-bts/omf/blob/master/omf/docs/images/resilientCommunity_screenshots/resComCircuitMapSearch.png)
+    <img src="./images/resilientCommunity_screenshots/resComCircuitMapSearch.png" alt="Alt text">
     * Circuit elements can be searched for by clicking in the top right corner "Edit" &rarr; "Search objects". Objects found by searching can be visualized on the map by clicking "Highlight search results" on the left side of the feeder map.
 
-![image](https://github.com/nreca-bts/omf/blob/master/omf/docs/images/resilientCommunity_screenshots/resComOutputs2.png)
+<img src="./images/resilientCommunity_screenshots/resComOutputs2.png" alt="Alt text">
 
 15. A Loads Data Table containing information on each load included in the analysis. 
 
@@ -125,7 +129,7 @@ _Outage Impact Potential - Weather Hazards Annualized Frequency_
     * Load Count and Load Amount (kva) in this table are total values across loads in each section. 
 
 18. A Raw Input and Output Files block present in every OMF model. Input files used in and output files generated by an instance of this model can be downloaded from here. 
-    * An output file called "loadData4RestorationModel.json" can be downloaded from here and used as an input to the [Restoration model.](https://github.com/nreca-bts/omf/blob/master/omf/docs/Models-~-restoration.md) 
+    * An output file called "loadData4RestorationModel.json" can be downloaded from here and used as an input to the [Restoration model.](./Models-~-restoration.md) 
 
 ***
 
@@ -139,14 +143,15 @@ _Outage Impact Potential - Weather Hazards Annualized Frequency_
 
 #### Base Criticality Score (BCS) & Base Criticality Index (BCI)
 * <u>BCS</u> is a criticality metric that estimates the number of people served at a load or by a piece of equipment. For a load, BCS is calculated based on the demand at that load divided by the estimated demand contribution per person. For a piece of equipment, BCS is calculated as the total of the BCS scores for all loads that it serves.   
-    ```math
     
-    \text{BCS}_{Load} = \frac{kva_{Load}}{(\frac{pd}{N})}
-    ```
     ```math
-
+    \text{BCS}_{Load} = \frac{kva_{Load}}{(\frac{pd}{N})}
+    ```  
+    
+    ```math
     \text{BCS}_{Equipment} = \sum\limits_{Load \in Loads}BCS_{Load}
-    ```
+    ```  
+    
     where, 
     *  $kva_{Load}$, the demand at $Load$.
     *  $pd$, the peak demand (in 𝑘𝑣𝑎) for the average load served by the system.
@@ -156,17 +161,18 @@ _Outage Impact Potential - Weather Hazards Annualized Frequency_
 * <u>BCI</u> is the percentile ranking of BCS among like circuit elements on the feeder. Loads are ranked among other loads and equipment is ranked among other equipment. Because equipment BCS scores are aggregates of load BCS scores, ranking them seprately prevents loads from purely occupying the lower BCI values. Consequently though, the BCI of an individual load should not be compared with that of an individual piece of equipment. 
 
 #### Locational Criticality Score (LCS) & Locational Criticality Index (LCI)
-* <u>LCS</u> is a criticality metric that builds off of BCS by adjusting it to account for the potential impact of outages in an area. For a load, LCS is calculated based on the BCS at that load weighted by the OIP Score for the blockgroup containing that load. For a piece of equipment, LCS is calculated as the total of the LCS scores for all loads that it serves. 
+* <u>LCS</u> is a criticality metric that builds off of BCS by adjusting it to account for the potential impact of outages in an area. For a load, LCS is calculated based on the BCS at that load weighted by the OIP Score for the blockgroup containing that load. For a piece of equipment, LCS is calculated as the total of the LCS scores for all loads that it serves.  
+    
     ```math
-
     \text{LCS}_{Load} = BCS_{Load} \times OIP_b
-    ```
+    ```  
+    
     ```math
-
     \text{LCS}_{Equipment} = \sum\limits_{Load \in Loads}LCS_{Load}
-    ```
-    where, 
-    *  $OIP_b$, the OIP Score for a blockgroup $b$, which contains $Load$
+    ```  
+    
+    where,  
+    * $OIP_b$, the OIP Score for a blockgroup $b$, which contains $Load$
     * $Loads$, the set of all loads served by a piece of equipment: $Equipment$
 * <u>LCI</u> is the percentile ranking of LCS among like circuit elements on the feeder. Like BCI, loads are ranked among other loads and equipment is ranked among other eqipment. Because equipment LCS scores are aggregates of load LCS scores, ranking them seprately prevents loads from purely occupying the lower LCI values. Consequently though, the LCI of an individual load should not be compared with that of an individual piece of equipment. 
 

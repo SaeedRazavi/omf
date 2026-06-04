@@ -64,6 +64,8 @@ The OMF has an easy-to-use web frontend. You can run it yourself or use the free
 * [Load Profile Effect on CVR](./Other-~-Load-Profile-effect-on-CVR.md)
 * [Walkthrough of a Solar Analysis](./Other-~-Walkthrough-of-a-Solar-Analysis.md)
 * [Weather Data](./Other-~-Weather-Data.md)
+* [Model Reduction](./Other-~-modelReduction.md)
+* [OpenDSS Syntax Requirements](./Other-~-OpenDSS-Syntax-Requirements.md)
 
 ### Developer Documentation
 

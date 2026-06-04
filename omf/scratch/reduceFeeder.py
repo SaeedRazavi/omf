@@ -39,7 +39,7 @@ def main(dssFileName: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Simplify openDSS circuit models to smaller but electrically-equivalent versions. For more information, visit \n https://github.com/nreca-bts/omf/wiki/Other-~-modelReduction"
+        description="Simplify openDSS circuit models to smaller but electrically-equivalent versions. For more information, visit \n https://github.com/nreca-bts/omf/blob/master/omf/docs/Other-~-modelReduction.md"
     )
     parser.add_argument(
         "dssFileName",

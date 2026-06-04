@@ -8,7 +8,7 @@ Computation times to process complex circuit models can be reduced by simplifyin
 When that has been accepted, add documentation for that here.-->
 
 #### _Requirements_
-Users must first have the [OMF downloaded and installed](https://github.com/nreca-bts/omf/wiki/Dev-~-Installation-Instructions), along with all of its requirements.
+Users must first have the [OMF downloaded and installed](https://github.com/nreca-bts/omf/blob/master/readme.md), along with all of its requirements.
 
 #### _Usage_
 This tool is a python script that can be run from the command line. The script is located at `omf/omf/scratch/reduceFeeder.py` and can be run from any directory using the full path.  
@@ -28,7 +28,7 @@ C:\Users\demoUser> python C:/Users/demoUser/omf/omf/scratch/reduceFeeder.py -h
 usage: reduceFeeder.py [-h] dssFileName
 
 Simplify openDSS circuit models to smaller but electrically-equivalent versions. For more information, visit
-https://github.com/nreca-bts/omf/wiki/Other-~-modelReduction
+https://github.com/nreca-bts/omf/blob/master/omf/docs/Other-~-modelReduction.md
 
 positional arguments:
   dssFileName  Path to the .dss file to be reduced.
