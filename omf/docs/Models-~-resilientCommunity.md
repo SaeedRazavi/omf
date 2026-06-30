@@ -3,8 +3,13 @@ omf.models.resilientCommunity is a new model currently under development. Check 
 
 ***
 
+***
+
 ### Introduction
 
+The resilientCommunity model uses technical factors alongside customer and weather hazard statistics to map the potential impact of outages on different parts of a feeder. How different statistics are valued, whether they should be used in the analysis at all, and how statistics should be combined is highly customizable by the user to fit their specific needs. 
+
+Though the customer statistics included in this model were chosen based on the statistics used by FEMA to calculate Social Vulnerability Index in their National Risk Index dataset, the inclusion of weather data and the options to weight and exclude variables evolves the concept for use in more varied applications. 
 The resilientCommunity model uses technical factors alongside customer and weather hazard statistics to map the potential impact of outages on different parts of a feeder. How different statistics are valued, whether they should be used in the analysis at all, and how statistics should be combined is highly customizable by the user to fit their specific needs. 
 
 Though the customer statistics included in this model were chosen based on the statistics used by FEMA to calculate Social Vulnerability Index in their National Risk Index dataset, the inclusion of weather data and the options to weight and exclude variables evolves the concept for use in more varied applications. 
@@ -16,10 +21,17 @@ omf.models.resilientCommunity can be used to:
   * Identify pieces of equipment near the end of their projected lifespan in more urgent need of preventative maintenance or replacement due to being in areas with high outage impact potential.
   * Create a plan to evacuate people, accounting for those who have special needs, such as those without vehicles, the elderly, or people who do not speak English well.
   * Identify areas where continued support will be needed to recover following an emergency or natural disaster.
+  * Assess community need during emergency preparedness planning.
+  * Decide how many emergency personnel are required to assist people.
+  * Identify areas and pieces of equipment in need of assistance in emergencies.
+  * Identify pieces of equipment near the end of their projected lifespan in more urgent need of preventative maintenance or replacement due to being in areas with high outage impact potential.
+  * Create a plan to evacuate people, accounting for those who have special needs, such as those without vehicles, the elderly, or people who do not speak English well.
+  * Identify areas where continued support will be needed to recover following an emergency or natural disaster.
 
 > ℹ️ After running an instance of resilientCommunity for the first time, subsequent runs of the same instance will be much faster, allowing for quick analysis with different input values. This is because data is cached for future use once retrieved from the web. 
 
 ***
+
 
 ### Walkthrough
 

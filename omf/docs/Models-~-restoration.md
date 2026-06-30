@@ -9,6 +9,7 @@ The Restoration model uses the PowerModelsONM optimization library from Los Alam
 The Restoration model seeks to answer the following questions:
 * For a given set of microgrid hardware and (optionally) specified load priorities, what is the optimal series of control actions to keep critical loads available?
 * How does the incorporation of outage impact potential affect the availability of loads, the costs to the utility and consumer-members, and the ability to recover in the case of outage?
+* How does the incorporation of outage impact potential affect the availability of loads, the costs to the utility and consumer-members, and the ability to recover in the case of outage?
 
 
 ***
@@ -62,6 +63,8 @@ Outages can be modeled in one of two ways:
 --->
 5. Solution Fidelity, which trades off model runtime for precision in the results.
 6. A load priorities file, which permits the user to specify the relative importance of loads on the system.
+5. Solution Fidelity, which trades off model runtime for precision in the results.
+6. A load priorities file, which permits the user to specify the relative importance of loads on the system.
     * Loads should be given the following priority values according to their importance:\
         `1.0` for typical loads\
         `10.0` for essential loads \
@@ -70,6 +73,7 @@ Outages can be modeled in one of two ways:
     <!--- COMMENT NOTE: The above is done explicitly in our code, though it's not 100% clear if that is true within PowerModelsONM. If the restoration code changes, adjust this appropriately -->
     * Example load priorities file contents: \
       `{ load_1002: 1.0, load_1003: 10.0, load_3004: 100.0 }`
+7. A microgrid tagging file, which labels various microgrids for easier analysis of results. 
 7. A microgrid tagging file, which labels various microgrids for easier analysis of results. 
     * Any buses not explicitly assigned a microgrid label are labeled automatically based on the layout of the circuit, agnostic to the microgrid labels assigned to other buses in this file. Loads are assigned microgrid labels based on the microgrid of the bus to which they most closely connect. To have all microgrid labels assigned automatically, the user can upload a .JSON file containing only the contents `{}`.
     * Microgrid labels should only be assigned in such a way that there are switches on the circuit at the boundary of two microgrids, and all buses labeled as belonging to the same microgrid should be reachable from each other without passing through a different microgrid. Labeling infeasible microgrids (such as a microgrid consisting of two buses at opposite ends of the circuit, separated by a different microgrid) may result in erroneous simulation output. 
